@@ -12,3 +12,8 @@ JOIN roles ON e.role_id = roles.id
 JOIN departments ON roles.department_id = departments.id
 LEFT JOIN employees m ON m.id = e.manager_id
 ORDER BY e.id;
+
+SELECT departments.Department
+FROM departments;
+
+SELECT * FROM employees WHERE manager_id = NULL;

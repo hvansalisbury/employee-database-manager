@@ -3,7 +3,10 @@ const db = require('./modules/root');
 const title = require('./modules/title');
 let departmentsArray = [];
 let departmentsObject = [];
-
+let titlesArray = [];
+let rolesObject = [];
+let managersArray = [];
+var newEmp = [];
 const departmentChoices = () => {
     departmentsArray = [];
     db.query('SELECT * FROM departments ORDER BY id;', function (err, results) {
@@ -11,12 +14,35 @@ const departmentChoices = () => {
         for (let i = 0; i < results.length; i++) {
             departmentsArray.push(results[i].Department);
         };
-        console.log(departmentsObject)
     });
     return departmentsArray;
 };
 
-departmentChoices();
+const titleChoices = () => {
+    titlesArray = [];
+    db.query('SELECT * FROM roles ORDER BY id;', function (err, results) {
+        rolesObject = results;
+        for (let i = 0; i < results.length; i++) {
+            titlesArray.push(results[i].Title);
+        };
+    });
+    return titlesArray
+};
+
+const managerChoices = () => {
+    managersArray = [];
+    db.query('SELECT * FROM employees WHERE manager_id IS NULL ORDER BY id;', function (err, results) {
+        managersObject = results;
+        for (let i = 0; i < results.length; i++) {
+            let fn = results[i].first_name
+            let ln = results[i].last_name
+            managersArray.push(`${fn} ${ln}`);
+        };
+        managersArray.push("null")
+        console.log(managersArray)
+    });
+    return managersArray;
+};
 
 const validateInput = async (input) => {
     if (input !== '') {
@@ -111,6 +137,7 @@ const addRole = () => {
 };
 
 const addEmployee = () => {
+    newEmp = []
     inquirer
         .prompt([
             {
@@ -127,29 +154,53 @@ const addEmployee = () => {
             },
             {
                 type: "list",
-                name: "salary",
-                message: `Salary for new role`,
+                name: "title",
+                message: "Title of new employee",
                 validate: validateInput,
+                choices: titleChoices(),
             },
             {
                 type: "list",
-                name: "department",
-                message: `Department of new role`,
+                name: "manager",
+                message: "Manager of new employee",
                 validate: validateInput,
-                choices: departmentChoices(),
+                choices: managerChoices(),
             }
         ])
         .then((answers) => {
-            const department_id = departmentsObject[departmentsArray.indexOf(answers.department)].id;
-            const values = [answers.title, answers.salary, department_id];
-            console.log(values)
-            const sql = `INSERT INTO roles (Title, Salary, department_id) VALUES (?, ?, ?);`;
-            db.query(sql, values, function (err, results) {
+            const splitName = answers.manager.split(" ");
+            newEmp.push(answers.first_name, answers.last_name)
+            db.query(`SELECT id FROM roles WHERE roles.Title = ?`, answers.title, async function (err, res2) {
                 if (err) {
-                    console.log(err);
+                    console.error(err)
                 } else {
-                    allRoles();
-                };
+                    newEmp.push(res2[0].id)
+                    console.log(newEmp)
+                }
+            })
+            if (answers.manager === "null") {
+                newEmp.push(null)
+            } else {
+                const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
+                db.query(sql, splitName, async function (err, res) {
+                    if (err) {
+                        console.error(err)
+                    } else {
+                        newEmp.push(res[0].id)
+                    }
+                })
+            }
+            const sql2 = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES  (?, ?, ?, ?)`;
+            console.log(sql2)
+            console.log(newEmp)
+            console.log("......................")
+            db.query(sql2, newEmp, async function (err, res3) {
+                if (err) {
+                    console.error(err)
+                } else {
+                    console.log(res3)
+                    allEmployees();
+                }
             });
         });
 };
