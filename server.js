@@ -1,25 +1,171 @@
 const inquirer = require('inquirer');
-const db = require('./root');
+const db = require('./modules/root');
+const title = require('./modules/title');
+let departmentsArray = [];
+let departmentsObject = [];
 
+const departmentChoices = () => {
+    departmentsArray = [];
+    db.query('SELECT * FROM departments ORDER BY id;', function (err, results) {
+        departmentsObject = results;
+        for (let i = 0; i < results.length; i++) {
+            departmentsArray.push(results[i].Department);
+        };
+        console.log(departmentsObject)
+    });
+    return departmentsArray;
+};
 
-console.log(",---------------------------------------------------,")
-console.log("|                                                   |")
-console.log("|   _____                 _                         |")
-console.log("|  | ____|_ __ ___  _ __ | | ___  _   _  ___  ___   |")
-console.log("|  |  _| | '_ ` _ \\| '_ \\| |/ _ \\| | | |/ _ \\/ _ \\  |")
-console.log("|  | |___| | | | | | |_) | | (_) | |_| |  __/  __/  |")
-console.log("|  |_____|_| |_| |_| .__/|_|\\___/ \\__, |\\___|\\___|  |")
-console.log("|                  |_|            |___/             |")
-console.log("|   __  __                                          |")
-console.log("|  |  \\/  | __ _ _ __   __ _  __ _  ___ _ __        |")
-console.log("|  | |\\/| |/ _` | '_ \\ / _` |/ _` |/ _ \\ '__|       |")
-console.log("|  | |  | | (_| | | | | (_| | (_| |  __/ |          |")
-console.log("|  |_|  |_|\\__,_|_| |_|\\__,_|\\__, |\\___|_|          |")
-console.log("|                            |___/                  |")
-console.log("|                                                   |")
-console.log("`---------------------------------------------------'")
+departmentChoices();
 
-const start = () => {
+const validateInput = async (input) => {
+    if (input !== '') {
+        return true;
+    } else {
+        console.log('This field does not accept blank values, press up and delete previous entry');
+        return false;
+    };
+};
+
+const allDepartments = () => {
+    db.query(`SELECT * FROM departments;`, function (err, results) {
+        console.table(results);
+    });
+};
+
+const allRoles = () => {
+    db.query(`SELECT roles.id as ID, roles.Title as Title, departments.Department AS Department, roles.Salary as Salary
+    FROM roles
+    JOIN departments ON roles.department_id = departments.id;`, function (err, results) {
+        console.table(results);
+    });
+};
+
+const allEmployees = () => {
+    db.query(`SELECT e.id AS ID, CONCAT(e.first_name, " " , e.last_name) AS Employee, roles.Title, departments.Department, roles.Salary, CONCAT(m.first_name, " ", m.last_name) AS Manager
+    FROM employees e
+    JOIN roles ON e.role_id = roles.id
+    JOIN departments ON roles.department_id = departments.id
+    LEFT JOIN employees m ON m.id = e.manager_id
+    ORDER BY e.id;`, function (err, results) {
+        console.table(results);
+    });
+};
+
+const addDepartment = () => {
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "name",
+                message: "What is the name of the new department?",
+                validate: validateInput,
+            }
+        ])
+        .then((answers) => {
+            const Department = answers.name;
+            const sql = `INSERT INTO departments (Department)
+            VALUES (?)`;
+            db.query(sql, Department, function (err, results) {
+                allDepartments();
+            });
+        });
+};
+
+const addRole = () => {
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "title",
+                message: "Title for new role",
+                validate: validateInput,
+            },
+            {
+                type: "number",
+                name: "salary",
+                message: `Salary for new role`,
+                validate: validateInput,
+            },
+            {
+                type: "list",
+                name: "department",
+                message: `Department of new role`,
+                validate: validateInput,
+                choices: departmentChoices(),
+            }
+        ])
+        .then((answers) => {
+            const department_id = departmentsObject[departmentsArray.indexOf(answers.department)].id;
+            const values = [answers.title, answers.salary, department_id];
+            console.log(values)
+            const sql = `INSERT INTO roles (Title, Salary, department_id) VALUES (?, ?, ?);`;
+            db.query(sql, values, function (err, results) {
+                if (err) {
+                    console.log(err);
+                } else {
+                    allRoles();
+                };
+            });
+        });
+};
+
+const addEmployee = () => {
+    inquirer
+        .prompt([
+            {
+                type: "input",
+                name: "first_name",
+                message: "First name of new employee",
+                validate: validateInput,
+            },
+            {
+                type: "input",
+                name: "last_name",
+                message: "Last name of new employee",
+                validate: validateInput,
+            },
+            {
+                type: "list",
+                name: "salary",
+                message: `Salary for new role`,
+                validate: validateInput,
+            },
+            {
+                type: "list",
+                name: "department",
+                message: `Department of new role`,
+                validate: validateInput,
+                choices: departmentChoices(),
+            }
+        ])
+        .then((answers) => {
+            const department_id = departmentsObject[departmentsArray.indexOf(answers.department)].id;
+            const values = [answers.title, answers.salary, department_id];
+            console.log(values)
+            const sql = `INSERT INTO roles (Title, Salary, department_id) VALUES (?, ?, ?);`;
+            db.query(sql, values, function (err, results) {
+                if (err) {
+                    console.log(err);
+                } else {
+                    allRoles();
+                };
+            });
+        });
+};
+
+const updateRole = () => {
+    inquirer
+        .prompt([
+            {
+
+            }
+        ])
+        .then((answers) => {
+        });
+};
+
+const init = () => {
     inquirer
         .prompt([
             {
@@ -58,3 +204,5 @@ const start = () => {
             }
         });
 };
+
+init();
