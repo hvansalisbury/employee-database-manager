@@ -6,7 +6,10 @@ let departmentsObject = [];
 let titlesArray = [];
 let rolesObject = [];
 let managersArray = [];
-var newEmp = [];
+let newEmp = [];
+let employeesArray = [];
+let employeeUpdate = [];
+
 const departmentChoices = () => {
     departmentsArray = [];
     db.query('SELECT * FROM departments ORDER BY id;', function (err, results) {
@@ -15,36 +18,45 @@ const departmentChoices = () => {
             departmentsArray.push(results[i].Department);
         };
     });
-    return departmentsArray;
 };
 
 const titleChoices = () => {
     titlesArray = [];
     db.query('SELECT * FROM roles ORDER BY id;', function (err, results) {
-        rolesObject = results;
-        for (let i = 0; i < results.length; i++) {
-            titlesArray.push(results[i].Title);
+        if (err) {
+            console.error(err)
+        } else {
+            for (let i = 0; i < results.length; i++) {
+                titlesArray.push(results[i].Title);
+            }
         };
     });
-    return titlesArray
 };
 
 const managerChoices = () => {
     managersArray = [];
     db.query('SELECT * FROM employees WHERE manager_id IS NULL ORDER BY id;', function (err, results) {
-        managersObject = results;
         for (let i = 0; i < results.length; i++) {
             let fn = results[i].first_name
             let ln = results[i].last_name
             managersArray.push(`${fn} ${ln}`);
         };
-        managersArray.push("null")
-        console.log(managersArray)
+        managersArray.push("NONE")
     });
-    return managersArray;
 };
 
-const validateInput = async (input) => {
+const employeeChoices = () => {
+    employeesArray = [];
+    db.query('SELECT first_name, last_name FROM employees ORDER BY id;', function (err, results) {
+        for (let i = 0; i < results.length; i++) {
+            let fn = results[i].first_name
+            let ln = results[i].last_name
+            employeesArray.push(`${fn} ${ln}`);
+        };
+    });
+};
+
+const validateInput = (input) => {
     if (input !== '') {
         return true;
     } else {
@@ -137,7 +149,67 @@ const addRole = () => {
 };
 
 const addEmployee = () => {
-    newEmp = []
+    const sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES  (?, ?, ?, ?)`;
+    db.query(sql, newEmp, function (err, results) {
+        if (err) {
+            console.error(err)
+        } else {
+            allEmployees();
+        }
+    });
+};
+
+const addEmployeeManager = () => {
+    inquirer
+        .prompt([
+            {
+                type: "list",
+                name: "manager",
+                message: "Manager of new employee",
+                validate: validateInput,
+                choices: managersArray,
+            }
+        ])
+        .then((answers) => {
+            const splitName = answers.manager.split(" ");
+            const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
+            db.query(sql, splitName, function (err, results) {
+                if (err) {
+                    console.error(err)
+                } else {
+                    newEmp.push(results[0].id)
+                    addEmployee();
+                }
+            })
+        });
+};
+
+const addEmployeeRole = () => {
+    inquirer
+        .prompt([
+            {
+                type: "list",
+                name: "title",
+                message: "Title of new employee",
+                validate: validateInput,
+                choices: titlesArray,
+            },
+        ])
+        .then((answers) => {
+            db.query(`SELECT id FROM roles WHERE roles.Title = ?`, answers.title, function (err, results) {
+                if (err) {
+                    console.error(err)
+                } else {
+                    newEmp.push(results[0].id)
+                    addEmployeeManager();
+                }
+            })
+        });
+};
+
+const addEmployeeName = () => {
+    titleChoices();
+    newEmp = [];
     inquirer
         .prompt([
             {
@@ -152,71 +224,101 @@ const addEmployee = () => {
                 message: "Last name of new employee",
                 validate: validateInput,
             },
-            {
-                type: "list",
-                name: "title",
-                message: "Title of new employee",
-                validate: validateInput,
-                choices: titleChoices(),
-            },
+        ])
+        .then((answers) => {
+            newEmp.push(answers.first_name, answers.last_name);
+            addEmployeeRole();
+        });
+};
+
+const updateEmployee = () => {
+    const sql = `UPDATE employees SET role_id = ?, manager_id = ? WHERE id = ?`;
+    db.query(sql, employeeUpdate, function (err, results) {
+        if (err) {
+            console.error(err)
+        } else {
+            allEmployees();
+        }
+    });
+};
+
+const newManager = () => {
+    inquirer
+        .prompt([
             {
                 type: "list",
                 name: "manager",
-                message: "Manager of new employee",
-                validate: validateInput,
-                choices: managerChoices(),
+                message: "New manager of employee",
+                choices: managersArray,
             }
         ])
         .then((answers) => {
             const splitName = answers.manager.split(" ");
-            newEmp.push(answers.first_name, answers.last_name)
-            db.query(`SELECT id FROM roles WHERE roles.Title = ?`, answers.title, async function (err, res2) {
+            const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
+            db.query(sql, splitName, function (err, results) {
                 if (err) {
                     console.error(err)
                 } else {
-                    newEmp.push(res2[0].id)
-                    console.log(newEmp)
+                    let managerID = parseInt(results[0].id);
+                    employeeUpdate.splice(1, 0, managerID)
+                    console.log(employeeUpdate)
+                    updateEmployee();
                 }
             })
-            if (answers.manager === "null") {
-                newEmp.push(null)
-            } else {
-                const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
-                db.query(sql, splitName, async function (err, res) {
-                    if (err) {
-                        console.error(err)
-                    } else {
-                        newEmp.push(res[0].id)
-                    }
-                })
-            }
-            const sql2 = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES  (?, ?, ?, ?)`;
-            console.log(sql2)
-            console.log(newEmp)
-            console.log("......................")
-            db.query(sql2, newEmp, async function (err, res3) {
-                if (err) {
-                    console.error(err)
-                } else {
-                    console.log(res3)
-                    allEmployees();
-                }
-            });
         });
 };
 
-const updateRole = () => {
+const newTitle = () => {
     inquirer
         .prompt([
             {
-
-            }
+                type: "list",
+                name: "title",
+                message: "New title of employee",
+                choices: titlesArray,
+            },
         ])
         .then((answers) => {
+            console.log(titlesArray)
+            let roleID = titlesArray.indexOf(answers.title);
+            roleID = roleID + 1;
+            employeeUpdate.unshift(roleID)
+            console.log(employeeUpdate)
+            newManager();
+        });
+};
+
+const selectEmployee = () => {
+    employeeUpdate = [];
+    inquirer
+        .prompt([
+            {
+                type: "list",
+                name: "employee",
+                message: "Which employee would you like to update?",
+                choices: employeesArray,
+            },
+        ])
+        .then((answers) => {
+            const splitName = answers.employee.split(" ");
+            const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
+            db.query(sql, splitName, function (err, results) {
+                if (err) {
+                    console.error(err)
+                } else {
+                    employeeUpdate.push(parseInt(results[0].id))
+                    console.log(employeeUpdate)
+                    newTitle()
+                }
+            })
         });
 };
 
 const init = () => {
+    departmentChoices()
+    titleChoices()
+    managerChoices()
+    employeeChoices()
     inquirer
         .prompt([
             {
@@ -232,10 +334,10 @@ const init = () => {
                     allEmployees();
                     break;
                 case 'Add Employee':
-                    addEmployee();
+                    addEmployeeName();
                     break;
                 case 'Update Employee Role':
-                    updateRole();
+                    selectEmployee();
                     break;
                 case 'View All Roles':
                     allRoles();
