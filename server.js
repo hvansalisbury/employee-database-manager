@@ -68,6 +68,7 @@ const validateInput = (input) => {
 const allDepartments = () => {
     db.query(`SELECT * FROM departments;`, function (err, results) {
         console.table(results);
+        init();
     });
 };
 
@@ -76,6 +77,7 @@ const allRoles = () => {
     FROM roles
     JOIN departments ON roles.department_id = departments.id;`, function (err, results) {
         console.table(results);
+        init();
     });
 };
 
@@ -87,6 +89,7 @@ const allEmployees = () => {
     LEFT JOIN employees m ON m.id = e.manager_id
     ORDER BY e.id;`, function (err, results) {
         console.table(results);
+        init();
     });
 };
 
@@ -129,8 +132,7 @@ const addRole = () => {
                 type: "list",
                 name: "department",
                 message: `Department of new role`,
-                validate: validateInput,
-                choices: departmentChoices(),
+                choices: departmentsArray,
             }
         ])
         .then((answers) => {
@@ -149,7 +151,13 @@ const addRole = () => {
 };
 
 const addEmployee = () => {
-    const sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES  (?, ?, ?, ?)`;
+    console.log(newEmp.length + "hello")
+    let sql;
+    if (newEmp.length === 3) {
+        sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES  (?, ?, ?, NULL)`;
+    } else {
+        sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES  (?, ?, ?, ?)`;
+    }
     db.query(sql, newEmp, function (err, results) {
         if (err) {
             console.error(err)
@@ -157,6 +165,7 @@ const addEmployee = () => {
             allEmployees();
         }
     });
+
 };
 
 const addEmployeeManager = () => {
@@ -166,21 +175,24 @@ const addEmployeeManager = () => {
                 type: "list",
                 name: "manager",
                 message: "Manager of new employee",
-                validate: validateInput,
                 choices: managersArray,
             }
         ])
         .then((answers) => {
-            const splitName = answers.manager.split(" ");
-            const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
-            db.query(sql, splitName, function (err, results) {
-                if (err) {
-                    console.error(err)
-                } else {
-                    newEmp.push(results[0].id)
-                    addEmployee();
-                }
-            })
+            if (answers.manager === "NONE") {
+                addEmployee()
+            } else {
+                const splitName = answers.manager.split(" ");
+                const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
+                db.query(sql, splitName, function (err, results) {
+                    if (err) {
+                        console.error(err)
+                    } else {
+                        newEmp.push(results[0].id)
+                        addEmployee();
+                    }
+                })
+            }
         });
 };
 
@@ -231,8 +243,40 @@ const addEmployeeName = () => {
         });
 };
 
+const removeEmployee = () => {
+    inquirer
+        .prompt([
+            {
+                type: "list",
+                name: "employee",
+                message: "Which employee would you like to remove?",
+                choices: employeesArray,
+            },
+        ])
+        .then((answers) => {
+            console.log(answers.employee)
+            const splitName = answers.employee.split(" ");
+            const sql = `DELETE FROM employees WHERE first_name = ? AND last_name = ?;`;
+            db.query(sql, splitName, function (err, results) {
+                if (err) {
+                    console.error(err)
+                } else {
+                    allEmployees();
+                    init();
+                }
+            })
+
+        });
+};
+
+
 const updateEmployee = () => {
-    const sql = `UPDATE employees SET role_id = ?, manager_id = ? WHERE id = ?`;
+    let sql;
+    if (employeeUpdate.length === 2) {
+        sql = `UPDATE employees SET role_id = ?, manager_id = NULL WHERE id = ?`;
+    } else {
+        sql = `UPDATE employees SET role_id = ?, manager_id = ? WHERE id = ?`;
+    }
     db.query(sql, employeeUpdate, function (err, results) {
         if (err) {
             console.error(err)
@@ -253,18 +297,21 @@ const newManager = () => {
             }
         ])
         .then((answers) => {
-            const splitName = answers.manager.split(" ");
-            const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
-            db.query(sql, splitName, function (err, results) {
-                if (err) {
-                    console.error(err)
-                } else {
-                    let managerID = parseInt(results[0].id);
-                    employeeUpdate.splice(1, 0, managerID)
-                    console.log(employeeUpdate)
-                    updateEmployee();
-                }
-            })
+            if (answers.manager === "NONE") {
+                updateEmployee()
+            } else {
+                const splitName = answers.manager.split(" ");
+                const sql = `SELECT id FROM employees WHERE employees.first_name = ? AND employees.last_name = ?`;
+                db.query(sql, splitName, function (err, results) {
+                    if (err) {
+                        console.error(err)
+                    } else {
+                        let managerID = parseInt(results[0].id);
+                        employeeUpdate.splice(1, 0, managerID)
+                        updateEmployee();
+                    }
+                })
+            }
         });
 };
 
@@ -279,11 +326,9 @@ const newTitle = () => {
             },
         ])
         .then((answers) => {
-            console.log(titlesArray)
             let roleID = titlesArray.indexOf(answers.title);
             roleID = roleID + 1;
             employeeUpdate.unshift(roleID)
-            console.log(employeeUpdate)
             newManager();
         });
 };
@@ -307,7 +352,6 @@ const selectEmployee = () => {
                     console.error(err)
                 } else {
                     employeeUpdate.push(parseInt(results[0].id))
-                    console.log(employeeUpdate)
                     newTitle()
                 }
             })
@@ -325,7 +369,7 @@ const init = () => {
                 type: 'list',
                 name: 'first',
                 message: 'What would you like to do?',
-                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Quit'],
+                choices: ['View All Employees', 'Add Employee', 'Update Employee Role', 'Remove Employee', 'View All Roles', 'Add Role', 'View All Departments', 'Add Department', 'Quit'],
             }
         ])
         .then((answers) => {
@@ -338,6 +382,9 @@ const init = () => {
                     break;
                 case 'Update Employee Role':
                     selectEmployee();
+                    break;
+                case 'Remove Employee':
+                    removeEmployee();
                     break;
                 case 'View All Roles':
                     allRoles();
