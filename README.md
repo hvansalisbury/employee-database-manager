@@ -26,7 +26,7 @@ Once installed, open the terminal to the root folder of the project. Then type i
 
 ## Walkthrough
 
-[Walkthrough Video](https://drive.google.com/file/d/1cZC1lUASATnJiAL5DQ4mdKAk30CuGauY/view)
+[Walkthrough Video](https://drive.google.com/file/d/14VsaCIl1tLKHFRXHAvuOtd7keXOIaTNF/view)
 ## License
 
 [![badge](https://img.shields.io/badge/license-MIT_License-purple)](https://choosealicense.com/licenses/mit)
